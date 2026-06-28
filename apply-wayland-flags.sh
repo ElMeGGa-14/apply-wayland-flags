@@ -198,7 +198,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$mode" == "full" ]]; then
-    rm -f "$OVERRIDE_DIR"/*.desktop
+    for f in "$OVERRIDE_DIR"/*.desktop; do
+        [[ -f "$f" ]] || continue
+        case "$(basename "$f")" in
+            apply-wayland-flags-tui.desktop) continue ;;
+        esac
+        rm -f "$f"
+    done
     echo "Full rescan: cleared existing overrides."
 fi
 
