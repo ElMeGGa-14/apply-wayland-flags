@@ -1,13 +1,32 @@
 #!/bin/bash
 # install.sh - Install apply-wayland-flags system-wide
 # Usage: ./install.sh [--user]
+#
+# Works both from a local clone and via:
+#   curl -sSfL https://raw.githubusercontent.com/ElMeGGa-14/apply-wayland-flags/main/install.sh | bash
 
 set -euo pipefail
 
-SCRIPT_SRC="$(dirname "$0")/apply-wayland-flags.sh"
-SERVICE_SRC="$(dirname "$0")/hooks/apply-wayland-flags.service"
-PATH_SRC="$(dirname "$0")/hooks/apply-wayland-flags.path"
+REPO="https://raw.githubusercontent.com/ElMeGGa-14/apply-wayland-flags/main"
 
+# ── Determine if we're running from a local copy or piped ────────
+SCRIPT_DIR="$(cd "$(dirname "$0")" &>/dev/null && pwd 2>/dev/null || echo "")"
+
+if [[ -f "$SCRIPT_DIR/apply-wayland-flags.sh" ]]; then
+    fetch() { cp "$SCRIPT_DIR/$1" "$2"; }
+    echo "  Using local files from $SCRIPT_DIR"
+else
+    fetch() {
+        local url="$REPO/$1"
+        if [[ "$1" == hooks/* ]]; then
+            url="$REPO/$1"
+        fi
+        curl -sSfL "$url" -o "$2"
+    }
+    echo "  Downloading from $REPO"
+fi
+
+# ── Parse args ───────────────────────────────────────────────────
 if [[ "${1:-}" == "--user" ]]; then
     INSTALL_DIR="$HOME/.local/bin"
     SYSTEMD_DIR="$HOME/.config/systemd/user"
@@ -15,36 +34,33 @@ if [[ "${1:-}" == "--user" ]]; then
     echo "Installing for current user only..."
 else
     INSTALL_DIR="/usr/local/bin"
-    SYSTEMD_DIR="/etc/systemd/user"
+    SYSTEMD_DIR="$HOME/.config/systemd/user"
     SUDO="sudo"
     echo "Installing system-wide (requires sudo)..."
 fi
 
 # ── Copy script ──────────────────────────────────────────────────
 mkdir -p "$INSTALL_DIR"
-$SUDO cp "$SCRIPT_SRC" "$INSTALL_DIR/apply-wayland-flags"
+fetch "apply-wayland-flags.sh" "/tmp/apply-wayland-flags.sh"
+$SUDO cp "/tmp/apply-wayland-flags.sh" "$INSTALL_DIR/apply-wayland-flags"
 $SUDO chmod +x "$INSTALL_DIR/apply-wayland-flags"
+rm -f "/tmp/apply-wayland-flags.sh"
 echo "  + Script → $INSTALL_DIR/apply-wayland-flags"
+
+SCRIPT_TARGET="$INSTALL_DIR/apply-wayland-flags"
 
 # ── Systemd path unit ────────────────────────────────────────────
 mkdir -p "$SYSTEMD_DIR"
-$SUDO cp "$SERVICE_SRC" "$SYSTEMD_DIR/apply-wayland-flags.service"
-$SUDO cp "$PATH_SRC" "$SYSTEMD_DIR/apply-wayland-flags.path"
-
-SCRIPT_TARGET="$INSTALL_DIR/apply-wayland-flags"
-$SUDO sed -i "s|@SCRIPT@|$SCRIPT_TARGET|g" "$SYSTEMD_DIR/apply-wayland-flags.service"
-
+fetch "hooks/apply-wayland-flags.service" "/tmp/apply-wayland-flags.service"
+fetch "hooks/apply-wayland-flags.path" "/tmp/apply-wayland-flags.path"
+sed -i "s|@SCRIPT@|$SCRIPT_TARGET|g" "/tmp/apply-wayland-flags.service"
+$SUDO cp "/tmp/apply-wayland-flags.service" "$SYSTEMD_DIR/apply-wayland-flags.service"
+$SUDO cp "/tmp/apply-wayland-flags.path" "$SYSTEMD_DIR/apply-wayland-flags.path"
 echo "  + systemd: $SYSTEMD_DIR/apply-wayland-flags.{service,path}"
 
-if [[ "$SUDO" == "" ]]; then
-    systemctl --user daemon-reload
-    systemctl --user enable --now apply-wayland-flags.path
-    echo "  + systemd user path unit enabled and started."
-else
-    sudo systemctl --user daemon-reload 2>/dev/null || true
-    sudo systemctl --user enable --now apply-wayland-flags.path 2>/dev/null || true
-    echo "  + systemd user path unit enabled. (Run 'systemctl --user enable --now apply-wayland-flags.path' if needed)"
-fi
+systemctl --user daemon-reload 2>/dev/null || true
+systemctl --user enable --now apply-wayland-flags.path 2>/dev/null || true
+echo "  + systemd user path unit enabled and started."
 
 # ── Distro-specific package manager hook ─────────────────────────
 DISTRO=""
@@ -57,16 +73,20 @@ case "$DISTRO" in
         HOOK_DIR="/etc/pacman.d/hooks"
         echo "  Detected: Arch-based → installing pacman hook"
         $SUDO mkdir -p "$HOOK_DIR"
-        $SUDO cp "$(dirname "$0")/hooks/pacman.hook" "$HOOK_DIR/apply-wayland-flags.hook"
-        $SUDO sed -i "s|@USER@|$USER|g; s|@SCRIPT@|$SCRIPT_TARGET|g" "$HOOK_DIR/apply-wayland-flags.hook"
+        fetch "hooks/pacman.hook" "/tmp/pacman.hook"
+        sed -i "s|@USER@|$USER|g; s|@SCRIPT@|$SCRIPT_TARGET|g" "/tmp/pacman.hook"
+        $SUDO cp "/tmp/pacman.hook" "$HOOK_DIR/apply-wayland-flags.hook"
+        rm -f "/tmp/pacman.hook"
         echo "  + pacman hook: $HOOK_DIR/apply-wayland-flags.hook"
         ;;
 
     debian|ubuntu|linuxmint|pop|elementary|zorin|kali)
         HOOK_FILE="/etc/apt/apt.conf.d/99apply-wayland-flags"
         echo "  Detected: Debian-based → installing apt hook"
-        $SUDO cp "$(dirname "$0")/hooks/apt.conf" "$HOOK_FILE"
-        $SUDO sed -i "s|@USER@|$USER|g; s|@SCRIPT@|$SCRIPT_TARGET|g" "$HOOK_FILE"
+        fetch "hooks/apt.conf" "/tmp/apt.conf"
+        sed -i "s|@USER@|$USER|g; s|@SCRIPT@|$SCRIPT_TARGET|g" "/tmp/apt.conf"
+        $SUDO cp "/tmp/apt.conf" "$HOOK_FILE"
+        rm -f "/tmp/apt.conf"
         echo "  + apt hook: $HOOK_FILE"
         ;;
 
@@ -74,8 +94,10 @@ case "$DISTRO" in
         HOOK_DIR="/etc/dnf/plugins/post-transaction-actions.d"
         echo "  Detected: Fedora-based → installing dnf action"
         $SUDO mkdir -p "$HOOK_DIR"
-        $SUDO cp "$(dirname "$0")/hooks/dnf.action" "$HOOK_DIR/apply-wayland-flags.action"
-        $SUDO sed -i "s|@USER@|$USER|g; s|@SCRIPT@|$SCRIPT_TARGET|g" "$HOOK_DIR/apply-wayland-flags.action"
+        fetch "hooks/dnf.action" "/tmp/dnf.action"
+        sed -i "s|@USER@|$USER|g; s|@SCRIPT@|$SCRIPT_TARGET|g" "/tmp/dnf.action"
+        $SUDO cp "/tmp/dnf.action" "$HOOK_DIR/apply-wayland-flags.action"
+        rm -f "/tmp/dnf.action"
         echo "  + dnf action: $HOOK_DIR/apply-wayland-flags.action"
         ;;
 
@@ -97,6 +119,9 @@ EOF
         echo "  The systemd path unit will still detect new apps via inotify."
         ;;
 esac
+
+# ── Cleanup ──────────────────────────────────────────────────────
+rm -f /tmp/apply-wayland-flags.service /tmp/apply-wayland-flags.path
 
 # ── First run ────────────────────────────────────────────────────
 echo ""
