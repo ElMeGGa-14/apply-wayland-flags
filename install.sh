@@ -135,17 +135,17 @@ if $INSTALL_TUI; then
     rm -f "/tmp/apply-wayland-flags-tui"
 
     mkdir -p "$HOME/.local/share/applications"
-    cat > "$HOME/.local/share/applications/apply-wayland-flags-tui.desktop" << EOF
-[Desktop Entry]
-Name=Wayland Flags Manager
-Comment=Apply fractional scaling fixes to Electron/Chromium apps
-Exec=$INSTALL_DIR/apply-wayland-flags-tui
-Terminal=true
-Type=Application
-Icon=preferences-system
-Categories=Settings;Utility;
-StartupNotify=false
-EOF
+    {
+        echo "[Desktop Entry]"
+        echo "Name=Wayland Flags Manager"
+        echo "Comment=Apply fractional scaling fixes to Electron/Chromium apps"
+        echo "Exec=$INSTALL_DIR/apply-wayland-flags-tui"
+        echo "Terminal=true"
+        echo "Type=Application"
+        echo "Icon=preferences-system"
+        echo "Categories=Settings;Utility;"
+        echo "StartupNotify=false"
+    } > "$HOME/.local/share/applications/apply-wayland-flags-tui.desktop"
     echo "  + TUI launcher → ~/.local/share/applications/apply-wayland-flags-tui.desktop"
     echo "  (Appears as 'Wayland Flags Manager' in your application menu)"
     if command -v update-desktop-database &>/dev/null; then
