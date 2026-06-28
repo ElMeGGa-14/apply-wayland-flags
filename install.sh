@@ -1,6 +1,9 @@
 #!/bin/bash
-# install.sh - Install apply-wayland-flags system-wide
-# Usage: ./install.sh [--user]
+# install.sh - Install apply-wayland-flags
+# Usage:
+#   ./install.sh          # system-wide
+#   ./install.sh --user   # per-user
+#   ./install.sh --tui    # per-user with clickable TUI
 #
 # Works both from a local clone and via:
 #   curl -sSfL https://raw.githubusercontent.com/ElMeGGa-14/apply-wayland-flags/main/install.sh | bash
@@ -18,24 +21,24 @@ if [[ -f "$SCRIPT_DIR/apply-wayland-flags.sh" ]]; then
 else
     fetch() {
         local url="$REPO/$1"
-        if [[ "$1" == hooks/* ]]; then
-            url="$REPO/$1"
-        fi
         curl -sSfL "$url" -o "$2"
     }
     echo "  Downloading from $REPO"
 fi
 
 # ── Parse args ───────────────────────────────────────────────────
-if [[ "${1:-}" == "--user" ]]; then
-    INSTALL_DIR="$HOME/.local/bin"
-    SYSTEMD_DIR="$HOME/.config/systemd/user"
-    SUDO=""
+INSTALL_TUI=false
+case "${1:-}" in
+    --user) INSTALL_DIR="$HOME/.local/bin" ; SYSTEMD_DIR="$HOME/.config/systemd/user" ; SUDO="" ;;
+    --tui)  INSTALL_DIR="$HOME/.local/bin" ; SYSTEMD_DIR="$HOME/.config/systemd/user" ; SUDO="" ; INSTALL_TUI=true ;;
+    *)      INSTALL_DIR="/usr/local/bin"   ; SYSTEMD_DIR="$HOME/.config/systemd/user" ; SUDO="sudo" ;;
+esac
+
+if $INSTALL_TUI; then
+    echo "Installing with TUI (per-user)..."
+elif [[ "$SUDO" == "" ]]; then
     echo "Installing for current user only..."
 else
-    INSTALL_DIR="/usr/local/bin"
-    SYSTEMD_DIR="$HOME/.config/systemd/user"
-    SUDO="sudo"
     echo "Installing system-wide (requires sudo)..."
 fi
 
@@ -119,6 +122,22 @@ EOF
         echo "  The systemd path unit will still detect new apps via inotify."
         ;;
 esac
+
+# ── TUI (clickable app) ──────────────────────────────────────────
+if $INSTALL_TUI; then
+    echo "  Installing TUI (terminal interface)..."
+    fetch "tui.sh" "/tmp/apply-wayland-flags-tui"
+    $SUDO cp "/tmp/apply-wayland-flags-tui" "$INSTALL_DIR/apply-wayland-flags-tui"
+    $SUDO chmod +x "$INSTALL_DIR/apply-wayland-flags-tui"
+    rm -f "/tmp/apply-wayland-flags-tui"
+
+    mkdir -p "$HOME/.local/share/applications"
+    fetch "hooks/apply-wayland-flags-tui.desktop" "/tmp/apply-wayland-flags-tui.desktop"
+    $SUDO cp "/tmp/apply-wayland-flags-tui.desktop" "$HOME/.local/share/applications/apply-wayland-flags-tui.desktop"
+    rm -f "/tmp/apply-wayland-flags-tui.desktop"
+    echo "  + TUI launcher → ~/.local/share/applications/apply-wayland-flags-tui.desktop"
+    echo "  (Appears as 'Wayland Flags Manager' in your application menu)"
+fi
 
 # ── Cleanup ──────────────────────────────────────────────────────
 rm -f /tmp/apply-wayland-flags.service /tmp/apply-wayland-flags.path

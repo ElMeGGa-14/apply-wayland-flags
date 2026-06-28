@@ -14,6 +14,12 @@ User-only install (no sudo):
 curl -sSfL https://raw.githubusercontent.com/ElMeGGa-14/apply-wayland-flags/main/install.sh | bash -s -- --user
 ```
 
+Install with TUI (clickable app in your application menu, no sudo):
+
+```bash
+curl -sSfL https://raw.githubusercontent.com/ElMeGGa-14/apply-wayland-flags/main/install.sh | bash -s -- --tui
+```
+
 After install, run once or wait for the next login:
 
 ```bash
@@ -53,11 +59,12 @@ Mechanism applies regardless of shell (bash, zsh, fish) or terminal emulator —
 
 ## Sudo vs --user
 
-| | `sudo` (default) | `--user` |
-|---|---|---|
-| Script location | `/usr/local/bin/` (system-wide) | `~/.local/bin/` (per-user) |
-| Package manager hook | Installed | Not installed |
-| Systemd path unit | Enabled | Enabled |
+| | `sudo` (default) | `--user` | `--tui` |
+|---|---|---|---|
+| Script location | `/usr/local/bin/` (system-wide) | `~/.local/bin/` (per-user) | `~/.local/bin/` (per-user) |
+| Package manager hook | Installed | Not installed | Not installed |
+| Systemd path unit | Enabled | Enabled | Enabled |
+| Clickable app menu entry | — | — | Added |
 
 The package manager hook is optional — the systemd path unit detects new `.desktop` files within seconds via inotify regardless. The hook just provides instant application on package install.
 
