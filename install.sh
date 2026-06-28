@@ -66,62 +66,65 @@ systemctl --user enable --now apply-wayland-flags.path 2>/dev/null || true
 echo "  + systemd user path unit enabled and started."
 
 # ── Distro-specific package manager hook ─────────────────────────
-DISTRO=""
-if [[ -f /etc/os-release ]]; then
-    DISTRO=$(grep -E '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
-fi
+# (only installed in system-wide mode, requires write access to /etc)
+if [[ "$SUDO" != "" ]]; then
+    DISTRO=""
+    if [[ -f /etc/os-release ]]; then
+        DISTRO=$(grep -E '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
+    fi
 
-case "$DISTRO" in
-    arch|archarm|manjaro|endeavouros|cachyos|artix|arcolinux|garuda|rebornos)
-        HOOK_DIR="/etc/pacman.d/hooks"
-        echo "  Detected: Arch-based → installing pacman hook"
-        $SUDO mkdir -p "$HOOK_DIR"
-        fetch "hooks/pacman.hook" "/tmp/pacman.hook"
-        sed -i "s|@USER@|$USER|g; s|@SCRIPT@|$SCRIPT_TARGET|g" "/tmp/pacman.hook"
-        $SUDO cp "/tmp/pacman.hook" "$HOOK_DIR/apply-wayland-flags.hook"
-        rm -f "/tmp/pacman.hook"
-        echo "  + pacman hook: $HOOK_DIR/apply-wayland-flags.hook"
-        ;;
+    case "$DISTRO" in
+        arch|archarm|manjaro|endeavouros|cachyos|artix|arcolinux|garuda|rebornos)
+            HOOK_DIR="/etc/pacman.d/hooks"
+            echo "  Detected: Arch-based → installing pacman hook"
+            $SUDO mkdir -p "$HOOK_DIR"
+            fetch "hooks/pacman.hook" "/tmp/pacman.hook"
+            sed -i "s|@USER@|$USER|g; s|@SCRIPT@|$SCRIPT_TARGET|g" "/tmp/pacman.hook"
+            $SUDO cp "/tmp/pacman.hook" "$HOOK_DIR/apply-wayland-flags.hook"
+            rm -f "/tmp/pacman.hook"
+            echo "  + pacman hook: $HOOK_DIR/apply-wayland-flags.hook"
+            ;;
 
-    debian|ubuntu|linuxmint|pop|elementary|zorin|kali)
-        HOOK_FILE="/etc/apt/apt.conf.d/99apply-wayland-flags"
-        echo "  Detected: Debian-based → installing apt hook"
-        fetch "hooks/apt.conf" "/tmp/apt.conf"
-        sed -i "s|@USER@|$USER|g; s|@SCRIPT@|$SCRIPT_TARGET|g" "/tmp/apt.conf"
-        $SUDO cp "/tmp/apt.conf" "$HOOK_FILE"
-        rm -f "/tmp/apt.conf"
-        echo "  + apt hook: $HOOK_FILE"
-        ;;
+        debian|ubuntu|linuxmint|pop|elementary|zorin|kali)
+            HOOK_FILE="/etc/apt/apt.conf.d/99apply-wayland-flags"
+            echo "  Detected: Debian-based → installing apt hook"
+            fetch "hooks/apt.conf" "/tmp/apt.conf"
+            sed -i "s|@USER@|$USER|g; s|@SCRIPT@|$SCRIPT_TARGET|g" "/tmp/apt.conf"
+            $SUDO cp "/tmp/apt.conf" "$HOOK_FILE"
+            rm -f "/tmp/apt.conf"
+            echo "  + apt hook: $HOOK_FILE"
+            ;;
 
-    fedora|rhel|centos|rocky|alma)
-        HOOK_DIR="/etc/dnf/plugins/post-transaction-actions.d"
-        echo "  Detected: Fedora-based → installing dnf action"
-        $SUDO mkdir -p "$HOOK_DIR"
-        fetch "hooks/dnf.action" "/tmp/dnf.action"
-        sed -i "s|@USER@|$USER|g; s|@SCRIPT@|$SCRIPT_TARGET|g" "/tmp/dnf.action"
-        $SUDO cp "/tmp/dnf.action" "$HOOK_DIR/apply-wayland-flags.action"
-        rm -f "/tmp/dnf.action"
-        echo "  + dnf action: $HOOK_DIR/apply-wayland-flags.action"
-        ;;
+        fedora|rhel|centos|rocky|alma)
+            HOOK_DIR="/etc/dnf/plugins/post-transaction-actions.d"
+            echo "  Detected: Fedora-based → installing dnf action"
+            $SUDO mkdir -p "$HOOK_DIR"
+            fetch "hooks/dnf.action" "/tmp/dnf.action"
+            sed -i "s|@USER@|$USER|g; s|@SCRIPT@|$SCRIPT_TARGET|g" "/tmp/dnf.action"
+            $SUDO cp "/tmp/dnf.action" "$HOOK_DIR/apply-wayland-flags.action"
+            rm -f "/tmp/dnf.action"
+            echo "  + dnf action: $HOOK_DIR/apply-wayland-flags.action"
+            ;;
 
-    opensuse*|suse)
-        HOOK_DIR="/etc/zypp/plugins/commit"
-        echo "  Detected: openSUSE → installing zypper hook"
-        $SUDO mkdir -p "$HOOK_DIR"
-        $SUDO tee "$HOOK_DIR/apply-wayland-flags" <<EOF
+        opensuse*|suse)
+            HOOK_DIR="/etc/zypp/plugins/commit"
+            echo "  Detected: openSUSE → installing zypper hook"
+            $SUDO mkdir -p "$HOOK_DIR"
+            $SUDO tee "$HOOK_DIR/apply-wayland-flags" <<EOF
 #!/bin/bash
 su - $USER -c '$SCRIPT_TARGET' 2>/dev/null || true
 EOF
-        $SUDO chmod +x "$HOOK_DIR/apply-wayland-flags"
-        echo "  + zypper hook: $HOOK_DIR/apply-wayland-flags"
-        ;;
+            $SUDO chmod +x "$HOOK_DIR/apply-wayland-flags"
+            echo "  + zypper hook: $HOOK_DIR/apply-wayland-flags"
+            ;;
 
-    *)
-        echo "  Warning: Unrecognized distro '$DISTRO'."
-        echo "  No package manager hook installed."
-        echo "  The systemd path unit will still detect new apps via inotify."
-        ;;
-esac
+        *)
+            echo "  Warning: Unrecognized distro '$DISTRO'."
+            echo "  No package manager hook installed."
+            echo "  The systemd path unit will still detect new apps via inotify."
+            ;;
+    esac
+fi
 
 # ── TUI (clickable app) ──────────────────────────────────────────
 if $INSTALL_TUI; then
