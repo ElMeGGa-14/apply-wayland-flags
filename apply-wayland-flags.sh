@@ -197,12 +197,12 @@ get_installed_version() {
     if [[ -f "$STATE_DIR/version" ]]; then
         cat "$STATE_DIR/version"
     else
-        echo "0"
+        echo ""
     fi
 }
 
 get_remote_version() {
-    curl -sSfL "$RAW_BASE/VERSION" 2>/dev/null || echo "0"
+    curl -sSfL "https://api.github.com/repos/ElMeGGa-14/apply-wayland-flags/commits/main" 2>/dev/null | grep -m1 '"sha"' | cut -d'"' -f4 || echo ""
 }
 
 need_sudo_for_path() {
@@ -256,15 +256,13 @@ check_for_updates() {
     local_v=$(get_installed_version)
     remote_v=$(get_remote_version)
 
-    if [[ "$remote_v" == "0" ]] || [[ "$remote_v" == "$local_v" ]]; then
+    if [[ -z "$remote_v" ]] || [[ "$remote_v" == "$local_v" ]]; then
         return 0
     fi
 
-    if [[ "$remote_v" -gt "$local_v" ]]; then
-        echo "Update available: v$local_v → v$remote_v"
-        echo "Run '$0 --update' to update."
-        return 1
-    fi
+    echo "Update available (new commit on GitHub)."
+    echo "Run '$0 --update' to update."
+    return 1
 }
 
 # ── Main ──────────────────────────────────────────────────────────
