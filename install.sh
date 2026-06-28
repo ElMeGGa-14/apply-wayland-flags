@@ -135,11 +135,22 @@ if $INSTALL_TUI; then
     rm -f "/tmp/apply-wayland-flags-tui"
 
     mkdir -p "$HOME/.local/share/applications"
-    fetch "hooks/apply-wayland-flags-tui.desktop" "/tmp/apply-wayland-flags-tui.desktop"
-    $SUDO cp "/tmp/apply-wayland-flags-tui.desktop" "$HOME/.local/share/applications/apply-wayland-flags-tui.desktop"
-    rm -f "/tmp/apply-wayland-flags-tui.desktop"
+    cat > "$HOME/.local/share/applications/apply-wayland-flags-tui.desktop" << EOF
+[Desktop Entry]
+Name=Wayland Flags Manager
+Comment=Apply fractional scaling fixes to Electron/Chromium apps
+Exec=$INSTALL_DIR/apply-wayland-flags-tui
+Terminal=true
+Type=Application
+Icon=preferences-system
+Categories=Settings;Utility;
+StartupNotify=false
+EOF
     echo "  + TUI launcher → ~/.local/share/applications/apply-wayland-flags-tui.desktop"
     echo "  (Appears as 'Wayland Flags Manager' in your application menu)"
+    if command -v update-desktop-database &>/dev/null; then
+        update-desktop-database "$HOME/.local/share/applications/" &>/dev/null || true
+    fi
 fi
 
 # ── Cleanup ──────────────────────────────────────────────────────
