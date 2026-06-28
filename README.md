@@ -1,148 +1,127 @@
 # apply-wayland-flags
 
-¿Tienes textos borrosos, parpadeos o glitches en aplicaciones como Chrome, VS Code, Discord, Cursor, etc., al usar Wayland con escalado fraccionario (125%, 150%)? **Este script lo soluciona automáticamente.**
+Automatically applies `--disable-features=WaylandFractionalScaleV1 --ozone-platform-hint=wayland` to installed Electron/Chromium apps — including newly installed ones — to fix blurry text, flickering, and UI glitches caused by fractional scaling on Wayland.
 
-## ¿Por qué pasa esto?
-
-Las aplicaciones basadas en **Electron** (VS Code, Discord, Slack, Cursor, Obsidian...) y **Chromium** (Chrome, Brave, Edge, Opera...) tienen un problema con el escalado fraccionario en Wayland. Por defecto usan un protocolo que causa textos borrosos y parpadeos.
-
-**La solución** es pasarles dos banderas (flags) al iniciarlas:
-
-```
---disable-features=WaylandFractionalScaleV1 --ozone-platform-hint=wayland
-```
-
-Este script **detecta automáticamente** qué apps necesitan esas banderas y las aplica por ti, incluyendo las que instales en el futuro.
-
-## Instalación
-
-### Opción 1: Para todo el sistema (recomendada, pide contraseña)
+## Quick install
 
 ```bash
 curl -sSfL https://raw.githubusercontent.com/ElMeGGa-14/apply-wayland-flags/main/install.sh | bash
 ```
 
-Pide tu contraseña de sudo para:
-- Copiar el script a `/usr/local/bin/` (para que esté disponible para todos los usuarios)
-- Instalar el **hook** del gestor de paquetes (para que al instalar una app nueva, se apliquen los flags automáticamente)
-
-### Opción 2: Solo para tu usuario (sin contraseña)
+User-only install (no sudo):
 
 ```bash
 curl -sSfL https://raw.githubusercontent.com/ElMeGGa-14/apply-wayland-flags/main/install.sh | bash -s -- --user
 ```
 
-- Copia el script a `~/.local/bin/` (solo tú puedes usarlo)
-- **No** instala hooks del gestor de paquetes (pero igual detecta apps nuevas por sí solo)
-
-### ¿Cuál elijo?
-
-| | Opción 1 (sudo) | Opción 2 (--user) |
-|---|---|---|
-| Pide contraseña | ✅ Sí | ❌ No |
-| Disponible para | Todos los usuarios del PC | Solo tu usuario |
-| Detecta apps al instalarlas | ✅ Sí (hook + watcher) | ✅ Sí (solo watcher) |
-| Lo recomiendo si... | Eres el único usuario o admin del PC | No tienes acceso a sudo |
-
-Si no sabes cuál elegir, usa la **Opción 1**.
-
-## ¿Funciona en mi distro?
-
-Sí. Funciona en **cualquier distribución de Linux**:
-
-| Distro | ¿Cómo detecta apps nuevas automáticamente? |
-|---|---|
-| **Arch Linux, Manjaro, CachyOS, EndeavourOS** | Hook de pacman + watcher |
-| **Debian, Ubuntu, Mint, Pop!_OS, Kali** | Hook de APT + watcher |
-| **Fedora, RHEL, CentOS** | Hook de DNF + watcher |
-| **openSUSE** | Hook de Zypper + watcher |
-| **Cualquier otra** | Solo watcher (sigue funcionando, solo que el watcher tarda unos segundos en detectar la app nueva) |
-
-El **watcher** (systemd path unit) es un vigilante que no consume recursos (usa inotify, 0% CPU cuando está en reposo). Cuando detecta que apareció un archivo `.desktop` nuevo, ejecuta el script automáticamente.
-
-## ¿Funciona en mi terminal?
-
-Sí. **No importa qué terminal uses** (kitty, alacritty, gnome-terminal, konsole, xterm...) ni **qué shell** (bash, zsh, fish...). El script se instala en `/usr/local/bin/` (o `~/.local/bin/`), que es una carpeta especial que **todos los programas de terminal** revisan cuando escribes un comando.
-
-Después de instalar, puedes ejecutarlo desde cualquier terminal con:
+After install, run once or wait for the next login:
 
 ```bash
 apply-wayland-flags --full
 ```
 
-## ¿Qué apps están cubiertas?
+## Why
 
-El script detecta automáticamente estas apps (y muchas más no listadas, porque también inspecciona los archivos directamente):
+Electron and Chromium applications use the `wp_fractional_scale_v1` Wayland protocol by default, which causes rendering issues (blurry text, flickering, disproportionate UI elements) at fractional scale factors like 125% or 150%. Disabling this feature and forcing the Wayland ozone platform hint resolves these issues.
 
-**Navegadores:** Google Chrome, Chromium, Brave, Edge, Vivaldi, Opera, Yandex Browser, Arc, Ungoogled Chromium, Iridium, Epic, Slimjet, Naver Whale, Cent Browser
+## How it detects apps
 
-**Programas de código / editores:** VS Code, VS Code OSS, VSCodium, Cursor, Antigravity, OpenCode
+The script identifies Electron/Chromium applications through four methods:
 
-**Chats / Comunicación:** Discord, Slack, Microsoft Teams, Signal, WhatsApp, Mattermost, Zulip, Element, Keybase, Threema, Session
+1. **Known binary names** — matches the `Exec=` binary from `.desktop` files against a maintained list
+2. **Desktop file names** — matches the `.desktop` filename against the same list
+3. **Path inspection** — catches any binary whose path contains "electron", "chromium", or "chrome"
+4. **Binary analysis** — resolves symlinks, then inspects ELF binaries via `ldd` and `strings` for Electron/Chromium references (catches bundled apps like Cursor, Antigravity, etc.)
 
-**Productividad:** Obsidian, Notion, Figma, Todoist, Postman, Insomnia, Standard Notes, Logseq, Spotify, Zoom, AnyDesk, TeamViewer
+## What gets installed
 
-**Otros:** GitHub Desktop, GitKraken, Joplin, Typora, MarkText, Ferdium, Ferdi, Vesktop, ArmCord, mongodb-compass
+| Path | Purpose |
+|---|---|
+| `/usr/local/bin/apply-wayland-flags` (o `~/.local/bin/`) | The detection and patching script |
+| `~/.config/systemd/user/apply-wayland-flags.{path,service}` | Systemd user path unit — monitors `/usr/share/applications/` via inotify, 0 CPU when idle |
+| `/etc/pacman.d/hooks/apply-wayland-flags.hook` | Pacman hook (Arch, Manjaro, CachyOS...) |
+| `/etc/apt/apt.conf.d/99apply-wayland-flags` | APT hook (Debian, Ubuntu, Pop!_OS...) |
+| `/etc/dnf/plugins/post-transaction-actions.d/apply-wayland-flags.action` | DNF action (Fedora, RHEL...) |
+| `/etc/zypp/plugins/commit/apply-wayland-flags` | Zypper hook (openSUSE) |
 
-**Apps Flatpak:** Google Chrome, Chromium, Brave, Edge, Vivaldi, Opera, Discord, Slack, Signal, VS Code, Obsidian, Insomnia, Postman (además de los overrides globales que cubren cualquier otra app Flatpak que uses en el futuro)
+Mechanism applies regardless of shell (bash, zsh, fish) or terminal emulator — the script is installed to a directory in `$PATH`.
 
-### ¿Falta una app?
+## Sudo vs --user
 
-Si instalaste una app y los textos siguen borrosos, puede que no esté en la lista. Pide que la agreguemos abriendo un **issue** en GitHub con:
+| | `sudo` (default) | `--user` |
+|---|---|---|
+| Script location | `/usr/local/bin/` (system-wide) | `~/.local/bin/` (per-user) |
+| Package manager hook | Installed | Not installed |
+| Systemd path unit | Enabled | Enabled |
 
-1. El nombre de la app
-2. La salida de este comando (explica qué binario usa):
+The package manager hook is optional — the systemd path unit detects new `.desktop` files within seconds via inotify regardless. The hook just provides instant application on package install.
+
+## Flatpak support
+
+Flatpak apps receive the flags via global environment overrides:
+
+```
+flatpak override --user --env=ELECTRON_EXTRA_LAUNCH_ARGS=...
+flatpak override --user --env=CHROME_FLAGS=...
+```
+
+These are set once during installation and apply to all Flatpak apps (Electron and Chromium-based).
+
+## Currently detected applications
+
+<details>
+<summary>Expand list</summary>
+
+**Browsers:** Google Chrome, Chromium, Brave, Microsoft Edge, Vivaldi, Opera, Yandex Browser, Arc, Ungoogled Chromium, Iridium, Epic, Slimjet, Naver Whale, Cent Browser
+
+**Editors/IDEs:** VS Code, VS Code OSS, VSCodium, Cursor, Antigravity, OpenCode
+
+**Communication:** Discord, Slack, Microsoft Teams, Signal, WhatsApp, Mattermost, Zulip, Element, Keybase, Threema, Session
+
+**Productivity:** Obsidian, Notion, Figma, Todoist, Postman, Insomnia, Standard Notes, Logseq, Spotify, Zoom, AnyDesk, TeamViewer
+
+**Other:** GitHub Desktop, GitKraken, Joplin, Typora, MarkText, Ferdium, Ferdi, Vesktop, ArmCord, mongodb-compass
+
+**Flatpak:** com.google.Chrome, org.chromium.Chromium, com.brave.Browser, com.microsoft.Edge, com.vivaldi.Vivaldi, com.opera.Opera, com.discordapp.Discord, com.slack.Slack, com.signal.Signal, com.visualstudio.code, md.obsidian.Obsidian, rest.insomnia.Insomnia, com.postman.Postman
+
+</details>
+
+### Requesting an app
+
+If an app isn't detected, open an issue with:
+
+1. The application name
+2. Output of: `grep ^Exec /usr/share/applications/<name>.desktop`
+3. For Flatpaks: `flatpak list --app --columns=application | grep -i <name>`
+
+Or submit a PR adding the binary/Flatpak ID to the corresponding list in `apply-wayland-flags.sh`.
+
+## Usage
 
 ```bash
-cat /usr/share/applications/nombre-de-la-app.desktop | grep ^Exec
+# Full rescan — re-checks all installed applications
+apply-wayland-flags --full
+
+# Incremental — only processes new applications
+apply-wayland-flags
 ```
 
-Por ejemplo, para Cursor sería:
-```
-Exec=/usr/share/cursor/cursor %F
-```
+`--full` clears existing overrides and re-scans everything. Use it after installing the script or when troubleshooting.
 
-También puedes hacerlo tú mismo: agrega el nombre a las listas `KNOWN_BINARIES` o `KNOWN_FLATPAK_IDS` en `apply-wayland-flags.sh` y haz un PR. Es solo agregar el nombre del programa.
-
-## ¿Cómo funciona por dentro? (para curiosos)
-
-1. **Escanea** los archivos `.desktop` de tus programas instalados (`/usr/share/applications/` y carpetas de Flatpak)
-2. **Detecta** cuáles son apps Electron/Chromium de 4 formas:
-   - Compara el nombre del programa con su lista conocida
-   - Revisa si el nombre del archivo `.desktop` coincide
-   - Busca las palabras "electron", "chromium" o "chrome" en la ruta del programa
-   - Si el programa es un archivo binario (ELF), lo inspecciona por dentro buscando referencias a Electron/Chromium (esto funciona incluso si el programa está comprimido o empaquetado)
-3. **Crea una copia** del `.desktop` en `~/.local/share/applications/` con las banderas agregadas (las copias locales tienen prioridad sobre las del sistema)
-4. **Para Flatpak**: configura variables de entorno globales para que todas las apps Flatpak reciban las banderas
-
-## Como desinstalar
-
-Si ya no lo necesitas:
+## Uninstall
 
 ```bash
-# 1. Borra el script
 sudo rm -f /usr/local/bin/apply-wayland-flags
-
-# 2. Borra las copias de los .desktop que creó
 rm -f ~/.local/share/applications/*.desktop
-# O si quieres conservar algunas: borra solo /usr/local/share/applications/
-
-# 3. Desactiva el watcher
 systemctl --user disable --now apply-wayland-flags.path
-
-# 4. Borra los archivos del watcher
 rm -f ~/.config/systemd/user/apply-wayland-flags.{service,path}
-
-# 5. (Opcional) Borra el hook del gestor de paquetes
 sudo rm -f /etc/pacman.d/hooks/apply-wayland-flags.hook
 sudo rm -f /etc/apt/apt.conf.d/99apply-wayland-flags
 sudo rm -f /etc/dnf/plugins/post-transaction-actions.d/apply-wayland-flags.action
-
-# 6. (Opcional) Borra los overrides globales de Flatpak
 flatpak override --user --unset-env=ELECTRON_EXTRA_LAUNCH_ARGS
 flatpak override --user --unset-env=CHROME_FLAGS
 ```
 
-## Licencia
+## License
 
 MIT
