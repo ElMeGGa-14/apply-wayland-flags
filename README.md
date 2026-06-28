@@ -22,7 +22,12 @@ apply-wayland-flags --full
 
 ## Why
 
-Electron and Chromium applications use the `wp_fractional_scale_v1` Wayland protocol by default, which causes rendering issues (blurry text, flickering, disproportionate UI elements) at fractional scale factors like 125% or 150%. Disabling this feature and forcing the Wayland ozone platform hint resolves these issues.
+Electron and Chromium applications use the `wp_fractional_scale_v1` Wayland protocol by default, which causes rendering issues at non-integer scale factors:
+
+- **Above 100%** (125%, 150%, 200%...): blurry text, flickering, disproportionate UI elements
+- **Below 100%** (75%, 50%...): oversized transparent margins, broken window rendering, elements failing to repaint
+
+Disabling this feature and forcing the Wayland ozone platform hint resolves these issues across all fractional scales.
 
 ## How it detects apps
 
