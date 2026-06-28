@@ -1,0 +1,6 @@
+[Unit]
+Description=Apply Wayland flags to Electron/Chromium desktop files
+
+[Service]
+Type=oneshot
+ExecStart=@SCRIPT@ --full

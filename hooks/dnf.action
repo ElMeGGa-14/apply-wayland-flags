@@ -1,0 +1,3 @@
+# Dnf action for apply-wayland-flags
+# Place in /etc/dnf/plugins/post-transaction-actions.d/apply-wayland-flags.action
+su - @USER@ -c '@SCRIPT@' 2>/dev/null || true

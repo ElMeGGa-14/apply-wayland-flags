@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch for new or updated desktop files
+
+[Path]
+PathModified=/usr/share/applications/
+
+[Install]
+WantedBy=default.target

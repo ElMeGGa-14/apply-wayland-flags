@@ -1,0 +1,10 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Path
+Target = usr/share/applications/*.desktop
+
+[Action]
+Description = Applying Wayland flags to Electron/Chromium desktop files...
+When = PostTransaction
+Exec = /bin/su - @USER@ -c '@SCRIPT@'
