@@ -141,8 +141,8 @@ add_flags_to_exec() {
         if [[ "$line" == Exec=* ]]; then
             if [[ "$line" != *"$FLAGS"* ]]; then
                 local new_line
-                if echo "$line" | grep -q '%[UuFfDdNnVvMm]'; then
-                    new_line=$(echo "$line" | sed "s|^Exec=\([^ ]*\) \(.*%[^ ]*\)|Exec=\1 $FLAGS \2|")
+                if echo "$line" | grep -q '%[[:alpha:]%]'; then
+                    new_line=$(echo "$line" | sed "s|\(%[[:alpha:]%]\)|$FLAGS \1|")
                 else
                     new_line="Exec=$(echo "$line" | sed 's/^Exec=//') $FLAGS"
                 fi
@@ -185,6 +185,46 @@ handle_flatpak() {
     echo "  + flatpak: global overrides set (ELECTRON_EXTRA_LAUNCH_ARGS + CHROME_FLAGS)"
 
     FLATPAK_RESULT=$((flatpak_applied + 1))
+}
+
+# ── Config file handling ──────────────────────────────────────────
+# Some apps (notably google-chrome on Arch Linux) use a wrapper script
+# that reads flags from $XDG_CONFIG_HOME/<app>-flags.conf.
+# This ensures those config files also contain our Wayland flags.
+handle_config_files() {
+    local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
+    local config_count=0
+
+    for desktop_file in "$OVERRIDE_DIR"/*.desktop; do
+        [[ -f "$desktop_file" ]] || continue
+        grep -qF -e "$MARKER" "$desktop_file" 2>/dev/null || continue
+
+        local exec_line binary_name
+        exec_line=$(grep -m1 '^Exec=' "$desktop_file" 2>/dev/null || true)
+        [[ -z "$exec_line" ]] && continue
+
+        binary_name=$(echo "$exec_line" | sed 's/^Exec=//' | awk '{print $1}' | xargs basename 2>/dev/null || true)
+
+        local conf_file=""
+        case "$binary_name" in
+            google-chrome*)       conf_file="chrome-flags.conf" ;;
+            chromium*)            conf_file="chromium-flags.conf" ;;
+            electron*)            conf_file="electron-flags.conf" ;;
+            code|code-oss|codium) conf_file="code-flags.conf" ;;
+        esac
+
+        [[ -z "$conf_file" ]] && continue
+
+        local conf_path="$config_dir/$conf_file"
+        if [[ -f "$conf_path" ]] && ! grep -qF -- "--disable-features=WaylandFractionalScaleV1" "$conf_path" 2>/dev/null; then
+            echo "# Added by apply-wayland-flags on $(date +%Y-%m-%d)" >> "$conf_path"
+            echo "$FLAGS" >> "$conf_path"
+            echo "  + config: $conf_file"
+            ((config_count++))
+        fi
+    done
+
+    CONFIG_COUNT=$config_count
 }
 
 FLATPAK_DESKTOP_DIRS=(
@@ -335,12 +375,20 @@ for dir in /usr/share/applications "${FLATPAK_DESKTOP_DIRS[@]}"; do
     done
 done
 
+CONFIG_COUNT=0
+handle_config_files
+
 FLATPAK_RESULT=0
 handle_flatpak
 flatpak_count=$FLATPAK_RESULT
 
-if [[ "$applied" -eq 0 ]] && [[ "$flatpak_count" -eq 0 ]]; then
+if [[ "$applied" -eq 0 ]] && [[ "$flatpak_count" -eq 0 ]] && [[ "$CONFIG_COUNT" -eq 0 ]]; then
     echo "No Electron/Chromium apps found."
 else
-    echo "Applied: $applied desktop file(s), $flatpak_count flatpak override(s)."
+    local parts=""
+    [[ "$applied" -gt 0 ]] && parts+="$applied desktop file(s), "
+    [[ "$flatpak_count" -gt 0 ]] && parts+="$flatpak_count flatpak override(s), "
+    [[ "$CONFIG_COUNT" -gt 0 ]] && parts+="$CONFIG_COUNT config file(s), "
+    parts="${parts%, }"
+    echo "Applied: $parts."
 fi

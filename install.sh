@@ -54,11 +54,17 @@ SCRIPT_TARGET="$INSTALL_DIR/apply-wayland-flags"
 
 # ── Systemd path unit ────────────────────────────────────────────
 mkdir -p "$SYSTEMD_DIR"
+
+# Remove root-owned files left by previous system-wide installs
+for f in "$SYSTEMD_DIR"/apply-wayland-flags.*; do
+    [[ -f "$f" ]] && [[ ! -O "$f" ]] && sudo rm -f "$f" 2>/dev/null || true
+done
+
 fetch "hooks/apply-wayland-flags.service" "/tmp/apply-wayland-flags.service"
 fetch "hooks/apply-wayland-flags.path" "/tmp/apply-wayland-flags.path"
 sed -i "s|@SCRIPT@|$SCRIPT_TARGET|g" "/tmp/apply-wayland-flags.service"
-$SUDO cp "/tmp/apply-wayland-flags.service" "$SYSTEMD_DIR/apply-wayland-flags.service"
-$SUDO cp "/tmp/apply-wayland-flags.path" "$SYSTEMD_DIR/apply-wayland-flags.path"
+cp "/tmp/apply-wayland-flags.service" "$SYSTEMD_DIR/apply-wayland-flags.service"
+cp "/tmp/apply-wayland-flags.path" "$SYSTEMD_DIR/apply-wayland-flags.path"
 echo "  + systemd: $SYSTEMD_DIR/apply-wayland-flags.{service,path}"
 
 systemctl --user daemon-reload 2>/dev/null || true
