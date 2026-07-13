@@ -37,12 +37,15 @@ Disabling this feature and forcing the Wayland ozone platform hint resolves thes
 
 ## How it detects apps
 
-The script identifies Electron/Chromium applications through four methods:
+The script identifies Electron/Chromium applications through three conservative methods:
 
 1. **Known binary names** — matches the `Exec=` binary from `.desktop` files against a maintained list
 2. **Desktop file names** — matches the `.desktop` filename against the same list
-3. **Path inspection** — catches any binary whose path contains "electron", "chromium", or "chrome"
-4. **Binary analysis** — resolves symlinks, then inspects ELF binaries via `ldd` and `strings` for Electron/Chromium references (catches bundled apps like Cursor, Antigravity, etc.)
+3. **Linked-library analysis** — resolves symlinks and inspects ELF dependencies for Electron/Chromium libraries
+
+The detector deliberately does not search arbitrary strings embedded in binaries. Words
+such as "Electronic" and "electronvolt" caused false positives in unrelated GTK, Qt,
+and Rust applications.
 
 ## What gets installed
 
@@ -70,14 +73,17 @@ The package manager hook is optional — the systemd path unit detects new `.des
 
 ## Flatpak support
 
-Flatpak apps receive the flags via global environment overrides:
+Known Flatpak apps receive the flags via per-application environment overrides:
 
 ```
-flatpak override --user --env=ELECTRON_EXTRA_LAUNCH_ARGS=...
-flatpak override --user --env=CHROME_FLAGS=...
+flatpak override --user --env=ELECTRON_EXTRA_LAUNCH_ARGS=... <app-id>
+flatpak override --user --env=CHROME_FLAGS=... <app-id>
 ```
 
-These are set once during installation and apply to all Flatpak apps (Electron and Chromium-based).
+Overrides are scoped to known Electron/Chromium Flatpak IDs. During a scan, legacy
+global overrides created by versions prior to this fix are removed automatically.
+
+These are refreshed during scans and apply only to the matching Electron or Chromium app.
 
 ## Currently detected applications
 
