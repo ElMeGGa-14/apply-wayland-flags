@@ -108,10 +108,6 @@ is_electron_app() {
         [[ "$basename" == "$b" ]] && return 0
     done
 
-    if echo "$full_path" | grep -qiE "(electron|chromium|chrome)"; then
-        return 0
-    fi
-
     if [[ ! "$full_path" == */* ]] && type -P "$full_path" &>/dev/null; then
         full_path=$(type -P "$full_path")
     fi
@@ -122,9 +118,6 @@ is_electron_app() {
 
     if [[ -x "$full_path" ]] && file "$full_path" 2>/dev/null | grep -qi "ELF"; then
         if ldd "$full_path" 2>/dev/null | grep -qiE "(libelectron|libcef|libchrome)"; then
-            return 0
-        fi
-        if strings "$full_path" 2>/dev/null | grep -qiE "(electron|chromium)"; then
             return 0
         fi
     fi
@@ -167,10 +160,15 @@ handle_flatpak() {
     local flatpak_applied=0
     local flatpak_list
 
+    # Remove unsafe global overrides created by older releases. Flags are
+    # applied only to known application IDs below.
+    flatpak override --user --unset-env=ELECTRON_EXTRA_LAUNCH_ARGS &>/dev/null || true
+    flatpak override --user --unset-env=CHROME_FLAGS &>/dev/null || true
+
     flatpak_list=$(flatpak list --app --columns=application 2>/dev/null) || return 0
 
     for id in "${KNOWN_FLATPAK_IDS[@]}"; do
-        if echo "$flatpak_list" | grep -qiF "$id"; then
+        if echo "$flatpak_list" | grep -qxF "$id"; then
             if echo "$id" | grep -qiE "(chrome|chromium|brave|edge|vivaldi|opera|yandex|iridium|slimjet|whale|cent|epic)"; then
                 flatpak override --user --env=CHROME_FLAGS="$FLAGS" "$id" &>/dev/null
             fi
@@ -180,11 +178,7 @@ handle_flatpak() {
         fi
     done
 
-    flatpak override --user --env=ELECTRON_EXTRA_LAUNCH_ARGS="$FLAGS" &>/dev/null
-    flatpak override --user --env=CHROME_FLAGS="$FLAGS" &>/dev/null
-    echo "  + flatpak: global overrides set (ELECTRON_EXTRA_LAUNCH_ARGS + CHROME_FLAGS)"
-
-    FLATPAK_RESULT=$((flatpak_applied + 1))
+    FLATPAK_RESULT=$flatpak_applied
 }
 
 # ── Config file handling ──────────────────────────────────────────
@@ -306,6 +300,7 @@ check_for_updates() {
 }
 
 # ── Main ──────────────────────────────────────────────────────────
+main() {
 mode="incremental"
 check_updates=true
 while [[ $# -gt 0 ]]; do
@@ -385,10 +380,15 @@ flatpak_count=$FLATPAK_RESULT
 if [[ "$applied" -eq 0 ]] && [[ "$flatpak_count" -eq 0 ]] && [[ "$CONFIG_COUNT" -eq 0 ]]; then
     echo "No Electron/Chromium apps found."
 else
-    local parts=""
+    parts=""
     [[ "$applied" -gt 0 ]] && parts+="$applied desktop file(s), "
     [[ "$flatpak_count" -gt 0 ]] && parts+="$flatpak_count flatpak override(s), "
     [[ "$CONFIG_COUNT" -gt 0 ]] && parts+="$CONFIG_COUNT config file(s), "
     parts="${parts%, }"
     echo "Applied: $parts."
+fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
 fi
