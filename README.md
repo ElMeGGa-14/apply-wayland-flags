@@ -1,149 +1,236 @@
 # apply-wayland-flags
 
-Automatically applies `--disable-features=WaylandFractionalScaleV1 --ozone-platform-hint=wayland` to installed Electron/Chromium apps — including newly installed ones — to fix blurry text, flickering, and UI glitches caused by fractional scaling on Wayland.
+Apply Wayland startup flags to known Electron and Chromium applications on
+Linux. The goal is to work around blur, flicker, repaint issues, or incorrect
+window sizing that can appear with fractional display scaling.
 
-## Quick install
+The script applies:
+
+```text
+--disable-features=WaylandFractionalScaleV1
+--ozone-platform-hint=wayland
+```
+
+> [!IMPORTANT]
+> This is a workaround, not a universal fix. Results depend on the application,
+> its Electron/Chromium version, the compositor, and the packaging format.
+
+## Install
+
+Choose one installation mode. The installer performs a full scan immediately,
+so no additional command is required afterward.
+
+### System-wide script (recommended)
+
+Installs the command in `/usr/local/bin` and, on recognized distributions, a
+package-manager hook. It requires `sudo`.
 
 ```bash
 curl -sSfL https://raw.githubusercontent.com/ElMeGGa-14/apply-wayland-flags/main/install.sh | bash
 ```
 
-User-only install (no sudo):
+### Current user only
+
+Installs the command in `~/.local/bin` without a package-manager hook or `sudo`.
 
 ```bash
 curl -sSfL https://raw.githubusercontent.com/ElMeGGa-14/apply-wayland-flags/main/install.sh | bash -s -- --user
 ```
 
-Install with TUI (clickable app in your application menu, no sudo):
+Make sure `~/.local/bin` is in your `PATH`.
+
+### Current user with terminal UI
+
+Adds **Wayland Flags Manager** to the application menu. The interface uses
+`dialog` or `whiptail` when available and falls back to a plain terminal menu.
 
 ```bash
 curl -sSfL https://raw.githubusercontent.com/ElMeGGa-14/apply-wayland-flags/main/install.sh | bash -s -- --tui
 ```
 
-After install, run once or wait for the next login:
-
-```bash
-apply-wayland-flags --full
-```
-
-## Why
-
-Electron and Chromium applications use the `wp_fractional_scale_v1` Wayland protocol by default, which causes rendering issues at non-integer scale factors:
-
-- **Above 100%** (125%, 150%, 200%...): blurry text, flickering, disproportionate UI elements
-- **Below 100%** (75%, 50%...): oversized transparent margins, broken window rendering, elements failing to repaint
-
-Disabling this feature and forcing the Wayland ozone platform hint resolves these issues across all fractional scales.
-
-## How it detects apps
-
-The script identifies Electron/Chromium applications through three conservative methods:
-
-1. **Known binary names** — matches the `Exec=` binary from `.desktop` files against a maintained list
-2. **Desktop file names** — matches the `.desktop` filename against the same list
-3. **Linked-library analysis** — resolves symlinks and inspects ELF dependencies for Electron/Chromium libraries
-
-The detector deliberately does not search arbitrary strings embedded in binaries. Words
-such as "Electronic" and "electronvolt" caused false positives in unrelated GTK, Qt,
-and Rust applications.
-
-For applications whose distribution wrapper supports `~/.config/<app>-flags.conf`,
-the script also creates or updates that file. In particular, Google Chrome's
-`chrome-flags.conf` applies to normal windows, direct command-line launches, and
-installed PWAs (`--app-id`). Existing user flags are preserved.
-
-## What gets installed
-
-| Path | Purpose |
-|---|---|
-| `/usr/local/bin/apply-wayland-flags` (o `~/.local/bin/`) | The detection and patching script |
-| `~/.config/systemd/user/apply-wayland-flags.{path,service}` | Systemd user path unit — monitors `/usr/share/applications/` via inotify, 0 CPU when idle |
-| `/etc/pacman.d/hooks/apply-wayland-flags.hook` | Pacman hook (Arch, Manjaro, CachyOS...) |
-| `/etc/apt/apt.conf.d/99apply-wayland-flags` | APT hook (Debian, Ubuntu, Pop!_OS...) |
-| `/etc/dnf/plugins/post-transaction-actions.d/apply-wayland-flags.action` | DNF action (Fedora, RHEL...) |
-| `/etc/zypp/plugins/commit/apply-wayland-flags` | Zypper hook (openSUSE) |
-
-Mechanism applies regardless of shell (bash, zsh, fish) or terminal emulator — the script is installed to a directory in `$PATH`.
-
-## Sudo vs --user
-
-| | `sudo` (default) | `--user` | `--tui` |
-|---|---|---|---|
-| Script location | `/usr/local/bin/` (system-wide) | `~/.local/bin/` (per-user) | `~/.local/bin/` (per-user) |
-| Package manager hook | Installed | Not installed | Not installed |
-| Systemd path unit | Enabled | Enabled | Enabled |
-| Clickable app menu entry | — | — | Added |
-
-The package manager hook is optional — the systemd path unit detects new `.desktop` files within seconds via inotify regardless. The hook just provides instant application on package install.
-
-## Flatpak support
-
-Known Flatpak apps receive the flags via per-application environment overrides:
-
-```
-flatpak override --user --env=ELECTRON_EXTRA_LAUNCH_ARGS=... <app-id>
-flatpak override --user --env=CHROME_FLAGS=... <app-id>
-```
-
-Overrides are scoped to known Electron/Chromium Flatpak IDs. During a scan, legacy
-global overrides created by versions prior to this fix are removed automatically.
-
-These are refreshed during scans and apply only to the matching Electron or Chromium app.
-
-## Currently detected applications
-
-<details>
-<summary>Expand list</summary>
-
-**Browsers:** Google Chrome, Chromium, Brave, Microsoft Edge, Vivaldi, Opera, Yandex Browser, Arc, Ungoogled Chromium, Iridium, Epic, Slimjet, Naver Whale, Cent Browser
-
-**Editors/IDEs:** VS Code, VS Code OSS, VSCodium, Cursor, Antigravity, OpenCode
-
-**Communication:** Discord, Slack, Microsoft Teams, Signal, WhatsApp, Mattermost, Zulip, Element, Keybase, Threema, Session
-
-**Productivity:** Obsidian, Notion, Figma, Todoist, Postman, Insomnia, Standard Notes, Logseq, Spotify, Zoom, AnyDesk, TeamViewer
-
-**Other:** GitHub Desktop, GitKraken, Joplin, Typora, MarkText, Ferdium, Ferdi, Vesktop, ArmCord, mongodb-compass
-
-**Flatpak:** com.google.Chrome, org.chromium.Chromium, com.brave.Browser, com.microsoft.Edge, com.vivaldi.Vivaldi, com.opera.Opera, com.discordapp.Discord, com.slack.Slack, com.signal.Signal, com.visualstudio.code, md.obsidian.Obsidian, rest.insomnia.Insomnia, com.postman.Postman
-
-</details>
-
-### Requesting an app
-
-If an app isn't detected, open an issue with:
-
-1. The application name
-2. Output of: `grep ^Exec /usr/share/applications/<name>.desktop`
-3. For Flatpaks: `flatpak list --app --columns=application | grep -i <name>`
-
-Or submit a PR adding the binary/Flatpak ID to the corresponding list in `apply-wayland-flags.sh`.
-
 ## Usage
 
 ```bash
-# Full rescan — re-checks all installed applications
+# Process applications that do not already have a local desktop override
+apply-wayland-flags
+
+# Remove overrides created by this tool and rebuild them from system launchers
 apply-wayland-flags --full
 
-# Incremental — only processes new applications
-apply-wayland-flags
+# Check whether main contains a newer commit
+apply-wayland-flags --check-update
+
+# Replace the installed script (and TUI, when installed) with the latest version
+apply-wayland-flags --update
 ```
 
-`--full` clears existing overrides and re-scans everything. Use it after installing the script or when troubleshooting.
+Close every process belonging to an affected application before reopening it.
+Electron and Chromium applications commonly reuse an existing process, which
+keeps the old command line.
+
+For Chrome, open `chrome://version` and inspect **Command Line** to confirm that
+the flags reached the running process.
+
+## How it works
+
+The script scans these launcher directories:
+
+- `/usr/share/applications`
+- `/var/lib/flatpak/exports/share/applications`
+- `~/.local/share/flatpak/exports/share/applications`
+
+It recognizes applications using maintained binary and desktop-file names. As
+a conservative fallback, it also checks ELF dependencies for Electron, CEF, or
+Chrome libraries. It does not classify applications by arbitrary strings found
+inside binaries.
+
+For a detected native application, it copies the system `.desktop` file to
+`~/.local/share/applications` and adds the flags to its `Exec=` entries. The
+system launcher remains unchanged. Generated overrides contain this marker:
+
+```text
+# Generated by apply-wayland-flags
+```
+
+### Browser wrapper configuration and PWAs
+
+When a detected launcher uses a supported wrapper, the script creates or
+updates the corresponding file under `${XDG_CONFIG_HOME:-~/.config}`:
+
+| Executable | Configuration file |
+|---|---|
+| `google-chrome*` | `chrome-flags.conf` |
+| `chromium*` | `chromium-flags.conf` |
+| `electron*` | `electron-flags.conf` |
+| `code`, `code-oss`, `codium` | `code-flags.conf` |
+
+Existing settings are preserved and missing Wayland flags are appended. A
+wrapper file only has an effect when that distribution's launcher reads it.
+
+On Arch-based Google Chrome packages, `chrome-flags.conf` also covers direct
+`google-chrome-stable` launches and installed PWAs using `--app-id`.
+
+### Flatpak applications
+
+For known Flatpak IDs, the script sets per-application overrides using
+`ELECTRON_EXTRA_LAUNCH_ARGS` and, for known browsers, `CHROME_FLAGS`. It also
+removes legacy global overrides created by older releases.
+
+Environment-variable support is application-specific; some Flatpak packages
+may ignore these variables even when the override was created successfully.
+
+## Automatic scans
+
+Every installation mode enables a systemd user path unit that watches:
+
+```text
+/usr/share/applications/
+```
+
+When that directory changes, the unit runs a full scan. A system-wide install
+also adds a package-manager hook on recognized Arch, Debian, Fedora, and
+openSUSE-based distributions.
+
+The path unit does not watch Flatpak export directories. Run
+`apply-wayland-flags` manually after installing a Flatpak if it has not been
+processed automatically.
+
+## Supported applications
+
+Detection is based on the lists in
+[`apply-wayland-flags.sh`](./apply-wayland-flags.sh), which are the authoritative
+and most current source. They currently cover common browsers, editors,
+communication clients, productivity tools, and a smaller allowlist of Flatpak
+IDs.
+
+If an application is not detected, include the following information in an
+issue:
+
+```bash
+grep '^Exec=' /usr/share/applications/<application>.desktop
+flatpak list --app --columns=application | grep -i '<application>'
+```
+
+The Flatpak command is only needed for a Flatpak installation.
+
+## Limitations
+
+- Existing files in `~/.local/share/applications` are left untouched, even if
+  they have the same name as a detected system launcher. This protects user
+  customizations but can prevent an incremental scan from applying flags.
+- `--full` removes only overrides carrying the tool's marker, then recreates
+  them from the current system launchers.
+- Launchers outside the scanned directories are not detected.
+- Direct binary launches receive the flags only when a supported wrapper
+  configuration is available and actually read by the package.
+- An already running Electron/Chromium process must be fully closed before new
+  flags can take effect.
+- The final message reports changes made during that run. No changes can mean
+  that applications were already configured; it does not necessarily mean that
+  none are installed.
+
+## Installed files
+
+| Path | When installed | Purpose |
+|---|---|---|
+| `/usr/local/bin/apply-wayland-flags` | default mode | System-wide command |
+| `~/.local/bin/apply-wayland-flags` | `--user` or `--tui` | Per-user command |
+| `~/.local/bin/apply-wayland-flags-tui` | `--tui` | Terminal interface |
+| `~/.local/share/applications/apply-wayland-flags-tui.desktop` | `--tui` | Application-menu entry |
+| `~/.config/systemd/user/apply-wayland-flags.{path,service}` | all modes | Automatic native-app scan |
+| `/etc/pacman.d/hooks/apply-wayland-flags.hook` | supported system install | Pacman hook |
+| `/etc/apt/apt.conf.d/99apply-wayland-flags` | supported system install | APT hook |
+| `/etc/dnf/plugins/post-transaction-actions.d/apply-wayland-flags.action` | supported system install | DNF action |
+| `/etc/zypp/plugins/commit/apply-wayland-flags` | supported system install | Zypper hook |
 
 ## Uninstall
 
+Disable the automatic scan and remove installed program files:
+
 ```bash
-sudo rm -f /usr/local/bin/apply-wayland-flags
-rm -f ~/.local/share/applications/*.desktop
 systemctl --user disable --now apply-wayland-flags.path
 rm -f ~/.config/systemd/user/apply-wayland-flags.{service,path}
+systemctl --user daemon-reload
+
+sudo rm -f /usr/local/bin/apply-wayland-flags
+rm -f ~/.local/bin/apply-wayland-flags ~/.local/bin/apply-wayland-flags-tui
+rm -f ~/.local/share/applications/apply-wayland-flags-tui.desktop
+
 sudo rm -f /etc/pacman.d/hooks/apply-wayland-flags.hook
 sudo rm -f /etc/apt/apt.conf.d/99apply-wayland-flags
 sudo rm -f /etc/dnf/plugins/post-transaction-actions.d/apply-wayland-flags.action
-flatpak override --user --unset-env=ELECTRON_EXTRA_LAUNCH_ARGS
-flatpak override --user --unset-env=CHROME_FLAGS
+sudo rm -f /etc/zypp/plugins/commit/apply-wayland-flags
 ```
+
+List the `.desktop` overrides tracked by this project:
+
+```bash
+find ~/.local/share/applications -maxdepth 1 -type f -name '*.desktop' \
+  -exec grep -lF '# Generated by apply-wayland-flags' {} + \
+```
+
+Review that list, then remove only the files you intend to discard. Older
+releases could mark a pre-existing override that already contained the same
+flags, so deleting every match without inspection is not recommended.
+
+Remove the Flatpak environment overrides only from IDs supported by the script:
+
+```bash
+for app in \
+  com.google.Chrome org.chromium.Chromium com.brave.Browser \
+  com.microsoft.Edge com.vivaldi.Vivaldi com.opera.Opera \
+  com.discordapp.Discord com.slack.Slack com.signal.Signal \
+  com.visualstudio.code com.visualstudio.code-oss md.obsidian.Obsidian \
+  rest.insomnia.Insomnia io.github.zen_browser.zen com.postman.Postman
+do
+  flatpak info "$app" >/dev/null 2>&1 || continue
+  flatpak override --user --unset-env=ELECTRON_EXTRA_LAUNCH_ARGS "$app"
+  flatpak override --user --unset-env=CHROME_FLAGS "$app"
+done
+```
+
+Wrapper configuration files can contain unrelated user settings. Remove only
+the two Wayland flag lines rather than deleting the entire files.
 
 ## License
 
