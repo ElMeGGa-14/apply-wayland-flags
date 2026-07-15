@@ -134,8 +134,8 @@ add_flags_to_exec() {
         if [[ "$line" == Exec=* ]]; then
             if [[ "$line" != *"$FLAGS"* ]]; then
                 local new_line
-                if echo "$line" | grep -q '%[[:alpha:]%]'; then
-                    new_line=$(echo "$line" | sed "s|\(%[[:alpha:]%]\)|$FLAGS \1|")
+                if echo "$line" | grep -qE '(^|[[:space:]])%[[:alpha:]%]([[:space:]]|$)'; then
+                    new_line=$(echo "$line" | sed -E "s#(^|[[:space:]])(%[[:alpha:]%])([[:space:]]|$)#\1$FLAGS \2\3#")
                 else
                     new_line="Exec=$(echo "$line" | sed 's/^Exec=//') $FLAGS"
                 fi
@@ -188,6 +188,9 @@ handle_flatpak() {
 handle_config_files() {
     local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
     local config_count=0
+    local -A handled_configs=()
+
+    mkdir -p "$config_dir"
 
     for desktop_file in "$OVERRIDE_DIR"/*.desktop; do
         [[ -f "$desktop_file" ]] || continue
@@ -210,11 +213,26 @@ handle_config_files() {
         [[ -z "$conf_file" ]] && continue
 
         local conf_path="$config_dir/$conf_file"
-        if [[ -f "$conf_path" ]] && ! grep -qF -- "--disable-features=WaylandFractionalScaleV1" "$conf_path" 2>/dev/null; then
-            echo "# Added by apply-wayland-flags on $(date +%Y-%m-%d)" >> "$conf_path"
-            echo "$FLAGS" >> "$conf_path"
+        [[ -n "${handled_configs[$conf_path]:-}" ]] && continue
+        handled_configs[$conf_path]=1
+
+        local changed=false
+        if [[ ! -f "$conf_path" ]]; then
+            printf '# Created by apply-wayland-flags on %s\n' "$(date +%Y-%m-%d)" > "$conf_path"
+            changed=true
+        fi
+        if ! grep -qF -- "--disable-features=WaylandFractionalScaleV1" "$conf_path" 2>/dev/null; then
+            echo "--disable-features=WaylandFractionalScaleV1" >> "$conf_path"
+            changed=true
+        fi
+        if ! grep -qF -- "--ozone-platform-hint=wayland" "$conf_path" 2>/dev/null; then
+            echo "--ozone-platform-hint=wayland" >> "$conf_path"
+            changed=true
+        fi
+
+        if $changed; then
             echo "  + config: $conf_file"
-            ((config_count++))
+            ((++config_count))
         fi
     done
 
