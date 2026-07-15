@@ -47,6 +47,11 @@ The detector deliberately does not search arbitrary strings embedded in binaries
 such as "Electronic" and "electronvolt" caused false positives in unrelated GTK, Qt,
 and Rust applications.
 
+For applications whose distribution wrapper supports `~/.config/<app>-flags.conf`,
+the script also creates or updates that file. In particular, Google Chrome's
+`chrome-flags.conf` applies to normal windows, direct command-line launches, and
+installed PWAs (`--app-id`). Existing user flags are preserved.
+
 ## What gets installed
 
 | Path | Purpose |
