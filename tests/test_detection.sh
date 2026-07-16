@@ -41,6 +41,9 @@ assert_contains() {
 make_desktop chrome google-chrome-stable
 assert_detected "$tmp_dir/chrome.desktop"
 
+make_desktop heroic '/opt/Heroic/heroic %U'
+assert_detected "$tmp_dir/heroic.desktop"
+
 # Field codes embedded in arguments must not be split (for example Spotify's
 # --uri=%u), while standalone field codes remain at the end of the command.
 make_desktop spotify 'spotify --uri=%u'

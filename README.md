@@ -64,6 +64,25 @@ apply-wayland-flags --check-update
 apply-wayland-flags --update
 ```
 
+### Update from the terminal
+
+Use `--update` (or its short form, `-u`) to download the latest script from the
+`main` branch and replace the currently running installation:
+
+```bash
+apply-wayland-flags --update
+```
+
+System-wide installations under `/usr/local/bin` request `sudo` when the file
+is replaced. Per-user installations under `~/.local/bin` update without root
+permissions. If the terminal UI is installed, its script is updated as well.
+
+To check for a newer commit without installing it, run:
+
+```bash
+apply-wayland-flags --check-update
+```
+
 Close every process belonging to an affected application before reopening it.
 Electron and Chromium applications commonly reuse an existing process, which
 keeps the old command line.
@@ -143,6 +162,9 @@ and most current source. They currently cover common browsers, editors,
 communication clients, productivity tools, and a smaller allowlist of Flatpak
 IDs.
 
+Heroic Games Launcher is supported both as a native package using the
+`heroic.desktop` launcher and as the `com.heroicgameslauncher.hgl` Flatpak.
+
 If an application is not detected, include the following information in an
 issue:
 
@@ -221,7 +243,8 @@ for app in \
   com.microsoft.Edge com.vivaldi.Vivaldi com.opera.Opera \
   com.discordapp.Discord com.slack.Slack com.signal.Signal \
   com.visualstudio.code com.visualstudio.code-oss md.obsidian.Obsidian \
-  rest.insomnia.Insomnia io.github.zen_browser.zen com.postman.Postman
+  rest.insomnia.Insomnia io.github.zen_browser.zen com.postman.Postman \
+  com.heroicgameslauncher.hgl
 do
   flatpak info "$app" >/dev/null 2>&1 || continue
   flatpak override --user --unset-env=ELECTRON_EXTRA_LAUNCH_ARGS "$app"
