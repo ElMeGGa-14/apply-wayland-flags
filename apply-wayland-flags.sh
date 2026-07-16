@@ -47,6 +47,7 @@ KNOWN_BINARIES=(
     gitkraken joplin typora marktext
     ferdium ferdi vesktop armcord
     threema session-desktop standard-notes
+    heroic
     electron
 )
 
@@ -58,6 +59,7 @@ KNOWN_DESKTOP_PREFIXES=(
     marktext typora joplin
     ferdium ferdi vesktop
     threema standard-notes
+    heroic
     mongodb-compass
     yandex-browser iridium-browser
     epic-browser slimjet
@@ -82,6 +84,7 @@ KNOWN_FLATPAK_IDS=(
     rest.insomnia.Insomnia
     io.github.zen_browser.zen
     com.postman.Postman
+    com.heroicgameslauncher.hgl
 )
 
 # ── Detection ──────────────────────────────────────────────────────
