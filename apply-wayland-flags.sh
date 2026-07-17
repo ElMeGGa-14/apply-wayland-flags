@@ -41,7 +41,7 @@ KNOWN_BINARIES=(
     code code-oss codium
     opencode-desktop opencode
     cursor
-    antigravity antigravity-cli
+    antigravity antigravity-cli antigravity-ide
     microsoft-teams teams teams-for-linux mattermost-desktop
     mongodb-compass figma-linux github-desktop
     gitkraken joplin typora marktext
@@ -211,6 +211,7 @@ handle_config_files() {
             chromium*)            conf_file="chromium-flags.conf" ;;
             electron*)            conf_file="electron-flags.conf" ;;
             code|code-oss|codium) conf_file="code-flags.conf" ;;
+            antigravity-ide)      conf_file="antigravity-ide-flags.conf" ;;
         esac
 
         [[ -z "$conf_file" ]] && continue
