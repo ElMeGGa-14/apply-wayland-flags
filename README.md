@@ -122,6 +122,7 @@ updates the corresponding file under `${XDG_CONFIG_HOME:-~/.config}`:
 | `chromium*` | `chromium-flags.conf` |
 | `electron*` | `electron-flags.conf` |
 | `code`, `code-oss`, `codium` | `code-flags.conf` |
+| `antigravity-ide` | `antigravity-ide-flags.conf` |
 
 Existing settings are preserved and missing Wayland flags are appended. A
 wrapper file only has an effect when that distribution's launcher reads it.
