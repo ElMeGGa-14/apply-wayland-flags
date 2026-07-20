@@ -48,6 +48,7 @@ KNOWN_BINARIES=(
     ferdium ferdi vesktop armcord
     threema session-desktop standard-notes
     heroic
+    pear-desktop
     electron
 )
 
@@ -212,6 +213,7 @@ handle_config_files() {
             electron*)            conf_file="electron-flags.conf" ;;
             code|code-oss|codium) conf_file="code-flags.conf" ;;
             antigravity-ide)      conf_file="antigravity-ide-flags.conf" ;;
+            pear-desktop)         conf_file="pear-flags.conf" ;;
         esac
 
         [[ -z "$conf_file" ]] && continue

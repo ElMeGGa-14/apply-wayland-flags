@@ -44,6 +44,11 @@ assert_detected "$tmp_dir/chrome.desktop"
 make_desktop heroic '/opt/Heroic/heroic %U'
 assert_detected "$tmp_dir/heroic.desktop"
 
+# Pear Desktop ships a shell wrapper whose desktop ID does not contain its
+# executable name. It cannot be recognized by the ELF dependency fallback.
+make_desktop com.github.th-ch.youtube-music pear-desktop
+assert_detected "$tmp_dir/com.github.th-ch.youtube-music.desktop"
+
 # Field codes embedded in arguments must not be split (for example Spotify's
 # --uri=%u), while standalone field codes remain at the end of the command.
 make_desktop spotify 'spotify --uri=%u'
@@ -70,6 +75,18 @@ assert_contains "$XDG_CONFIG_HOME/chrome-flags.conf" '--ozone-platform-hint=wayl
 handle_config_files
 [[ "$CONFIG_COUNT" -eq 0 ]]
 [[ "$(grep -cF -- '--disable-features=WaylandFractionalScaleV1' "$XDG_CONFIG_HOME/chrome-flags.conf")" -eq 1 ]]
+
+# Pear's wrapper reads pear-flags.conf, so configure the wrapper as well as
+# patching its desktop launcher.
+cp "$tmp_dir/com.github.th-ch.youtube-music.desktop" \
+    "$OVERRIDE_DIR/com.github.th-ch.youtube-music.desktop"
+echo "$MARKER" >> "$OVERRIDE_DIR/com.github.th-ch.youtube-music.desktop"
+handle_config_files
+[[ "$CONFIG_COUNT" -eq 1 ]]
+assert_contains "$XDG_CONFIG_HOME/pear-flags.conf" '--disable-features=WaylandFractionalScaleV1'
+assert_contains "$XDG_CONFIG_HOME/pear-flags.conf" '--ozone-platform-hint=wayland'
+handle_config_files
+[[ "$CONFIG_COUNT" -eq 0 ]]
 
 # Appending text preserves a valid executable ELF while reproducing strings
 # that previously classified unrelated applications as Electron.
